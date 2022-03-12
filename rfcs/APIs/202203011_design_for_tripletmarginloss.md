@@ -1,12 +1,12 @@
-paddle.nn.TripletMarginLoss 设计文档
+# paddle.nn.TripletMarginLoss 设计文档
 
 | API 名称     | paddle.nn.TripletMarginLoss                   |
 | ------------ | --------------------------------------------- |
 | 提交作者     | Ainavo                                        |
-| 提交时间     | 2022-03-011                                   |
+| 提交时间     | 2022-03-11                                   |
 | 版本号       | V1.0                                          |
 | 依赖飞桨版本 | v2.2.0                                        |
-| 文件名       | 202203011_design_for_tripletmarginloss.md<br> |
+| 文件名       | 202203011_design_for_triplet_margin_loss.md |
 
 # 一、概述
 
@@ -94,7 +94,7 @@ Tensor triplet_margin_loss(const Tensor& anchor, const Tensor& positive, const T
 其中核心代码为：
 
 ```Python
-    def triplet_loss(queries, positives, negatives, margin=0.1):
+def triplet_loss(queries, positives, negatives, margin=0.1):
   """Calculates Triplet Loss.
   Triplet loss tries to keep all queries closer to positives than to any
   negatives. Differently from the Contrastive Loss, Triplet Loss uses squared
@@ -192,5 +192,8 @@ API 设计为`paddle.nn.TripletMarginLoss(margin=1.0, p=2.0, eps=1e-06, swap=Fal
 
 # 名词解释
 
-无 #附件及参考资料
+无 
+
+# 附件及参考资料
+
 无
