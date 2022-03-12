@@ -5,18 +5,18 @@
 | 提交作者     | Ainavo                                      |
 | 提交时间     | 2022-03-11                                  |
 | 版本号       | V1.0                                        |
-| 依赖飞桨版本 | v2.2.0                                      |
+| 依赖飞桨版本 | v2.2.2                                      |
 | 文件名       | 20220312_design_for_triplet_margin_loss.md |
 
 # 一、概述
 
 ## 1、相关背景
 
-为了提升飞桨 API 丰富度，支持科学计算领域 API，Paddle 需要扩充 API`paddle.nn.TripletMarginLoss`。
+为了提升飞桨 API 丰富度，支持科学计算领域 API，Paddle 需要扩充 API `paddle.nn.TripletMarginLoss` 。
 
 ## 2、功能目标
 
-增加 API`paddle.nn.TripletMarginLoss`，实现三元损失函数。
+增加 API `paddle.nn.TripletMarginLoss` ，实现三元损失函数。
 
 ## 3、意义
 
