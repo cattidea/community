@@ -142,8 +142,7 @@ def triplet_loss(queries, positives, negatives, margin=0.1):
 
 # 四、对比分析
 
-- 使用场景与功能：Pytorch
-- 实现对比：由于`pytorch.gather`和`paddle.gather`实际在秩大于 1 时的表现不一致；在出现多个`q`值时，pytorch 可直接通过处理后的`indice`进行多维索引，paddle 则需要分别索引再组合到一起。因此这里不再使用`paddle.gather`索引，改使用`paddle.take_along_axis`API 进行索引。
+- 使用场景与功能：Pytorch实现求解三元组API的基本功能，TensorFlow以训练中的实际参数为代入，两种代码风格不同。功能上基本一致，这里paddle三元组API的设计将对齐Pytorch中的三元组API。
 
 # 五、方案设计
 
@@ -184,7 +183,7 @@ API 设计为`paddle.nn.TripletMarginLoss(margin=1.0, p=2.0, eps=1e-06, swap=Fal
 
 # 七、可行性分析及规划排期
 
-方案主要依赖现有 paddle api 组合而成，且依赖的`paddle.nn.layer.pairwise_distance`、`paddle.clip`、`paddle.min`已于前期合入，依据其余代码风格将`paddle.nn.layer.pairwise_distance`重构到`paddle.nn.functional.pairwise_distance`中，并通过`paddle.nn.layer.loss`进行调用，工期上可以满足在当前版本周期内开发完成。
+方案主要依赖现有 paddle api 组合而成，且依赖的`paddle.nn.layer.pairwise_distance`、`paddle.clip`、`paddle.min`已于前期合入，由于`paddle.nn.layer.pairwise_distance`代码将求距离的实现方法写在`nn.layer`中，且与常规`nn.layer`中代码风格不同，故依据其余代码风格将`paddle.nn.layer.pairwise_distance`重构到`paddle.nn.functional.pairwise_distance`中，并通过`paddle.nn.layer.loss`进行调用，工期上可以满足在当前版本周期内开发完成。
 
 # 八、影响面
 
