@@ -1,11 +1,11 @@
 # paddle.nn.TripletMarginLoss 设计文档
 
-| API 名称     | paddle.nn.TripletMarginLoss                   |
-| ------------ | --------------------------------------------- |
-| 提交作者     | Ainavo                                        |
-| 提交时间     | 2022-03-11                                   |
-| 版本号       | V1.0                                          |
-| 依赖飞桨版本 | v2.2.0                                        |
+| API 名称     | paddle.nn.TripletMarginLoss                 |
+| ------------ | ------------------------------------------- |
+| 提交作者     | Ainavo                                      |
+| 提交时间     | 2022-03-11                                  |
+| 版本号       | V1.0                                        |
+| 依赖飞桨版本 | v2.2.0                                      |
 | 文件名       | 202203011_design_for_triplet_margin_loss.md |
 
 # 一、概述
@@ -30,27 +30,29 @@
 
 ## Pytorch
 
-Pytorch 中有 API`torch.nn.functional.triplet_margin_loss(anchor, positive, negative, margin=1.0, p=2, eps=1e-06, swap=False, size_average=None, reduce=None, reduction='mean') -> Tensor`，以及对应的`torch.nn.TripletMarginLoss(margin=1.0, p=2.0, eps=1e-06, swap=False, size_average=None, reduce=None, reduction='mean') -> Tensor`.在 pytorch 中，介绍为：
+Pytorch 中有 functional API `torch.nn.functional.triplet_margin_loss(anchor, positive, negative, margin=1.0, p=2, eps=1e-06, swap=False, size_average=None, reduce=None, reduction='mean') -> Tensor`，以及对应的 Module `torch.nn.TripletMarginLoss(margin=1.0, p=2.0, eps=1e-06, swap=False, size_average=None, reduce=None, reduction='mean') -> Tensor`
 
-Creates a criterion that measures the triplet loss given an input tensors $x 1, x 2, x 3$ and a margin with a value greater than 0 . This is used for measuring a relative similarity between samples. A triplet is composed by a, $p$ and $n$ (i.e., anchor, positive examples and negative examples respectively). The shapes of all input tensors should be $(N, D)$.
+在 pytorch 中，介绍为：
 
-The distance swap is described in detail in the paper Learning shallow convolutional feature descriptors with triplet losses by V. Balntas, E. Riba et al.
-The loss function for each sample in the mini-batch is:
-
-$$
-L(a, p, n)=\max \left\{d\left(a_{i}, p_{i}\right)-d\left(a_{i}, n_{i}\right)+\operatorname{margin}, 0\right\}
-$$
-
-where
-
-$$
-d\left(x_{i}, y_{i}\right)=\left\|\mathbf{x}_{i}-\mathbf{y}_{i}\right\|_{p}
-$$
+> Creates a criterion that measures the triplet loss given an input tensors $x 1, x 2, x 3$ and a margin with a value greater than 0 . This is used for measuring a relative similarity between samples. A triplet is composed by a, $p$ and $n$ (i.e., anchor, positive examples and negative examples respectively). The shapes of all input tensors should be $(N, D)$.
+>
+> The distance swap is described in detail in the paper Learning shallow convolutional feature descriptors with triplet losses by V. Balntas, E. Riba et al.
+> The loss function for each sample in the mini-batch is:
+>
+> $$
+> L(a, p, n)=\max \left\{d\left(a_{i}, p_{i}\right)-d\left(a_{i}, n_{i}\right)+\operatorname{margin}, 0\right\}
+> $$
+>
+> where
+>
+> $$
+> d\left(x_{i}, y_{i}\right)=\left\|\mathbf{x}_{i}-\mathbf{y}_{i}\right\|_{p}
+> $$
 
 ### 实现方法
 
-在实现方法上, Pytorch 是通过 c++ API 组合实现的，[代码位置](https://github.com/pytorch/pytorch/blob/701fa16eed40c633d8eef6b4f04ab73a75c24749/aten/src/ATen/native/Loss.cpp?q=triplet_margin_loss#L148)。
-c++代码实现如下：
+在实现方法上，Pytorch 是通过 C++ API 组合实现的，[代码位置](https://github.com/pytorch/pytorch/blob/701fa16eed40c633d8eef6b4f04ab73a75c24749/aten/src/ATen/native/Loss.cpp?q=triplet_margin_loss#L148)。
+C++ 代码实现如下：
 
 ```c++
 Tensor triplet_margin_loss(const Tensor& anchor, const Tensor& positive, const Tensor& negative, double margin,
@@ -80,17 +82,18 @@ Tensor triplet_margin_loss(const Tensor& anchor, const Tensor& positive, const T
 
 整体逻辑为：
 
-- 检查输入` anchor``positive``negative `的维度是否相等，不等报错
-- 通过`pairwise_distance()`函数，分别计算` anchor``positive `之间的距离，` anchor``negative `之间的距离。
-- `swap`参数判断：正锚点和负锚点间距离，并与负锚点与样本间距离进行比较，取更小的距离作为负锚点与样本间的距离。
-- 通过`clamp_distance()`实现核心公式，计算出`loss`.
-- `apply_loss_redution()`函数选择输出的方式包括（` mean``sum `等）
+- 检查输入 `anchor`、`positive`、`negative` 三者的维度是否相等，不等报错
+- 通过 `pairwise_distance()` 函数，分别计算 `anchor` 和 `positive` 之间的距离，以及 `anchor` 和 `negative` 之间的距离。
+- `swap` 参数判断：正锚点和负锚点间距离，并与负锚点与样本间距离进行比较，取更小的距离作为负锚点与样本间的距离。
+- 通过 `clamp_distance()` 实现核心公式，计算出 `loss`。
+- `apply_loss_redution()` 函数选择输出的方式包括（` mean`、`sum` 等）
 
 ## TensorFlow
 
 ### 实现方法
 
-在实现方法上 tensorflow 以 python API 组合实现，[代码位置](https://github.com/tensorflow/models/blob/238922e98dd0e8254b5c0921b241a1f5a151782f/research/delf/delf/python/training/losses/ranking_losses.py).
+在实现方法上 tensorflow 以 python API 组合实现，[代码位置](https://github.com/tensorflow/models/blob/238922e98dd0e8254b5c0921b241a1f5a151782f/research/delf/delf/python/training/losses/ranking_losses.py)。
+
 其中核心代码为：
 
 ```Python
@@ -135,21 +138,24 @@ def triplet_loss(queries, positives, negatives, margin=0.1):
 
 整体逻辑为：
 
-- 读取输入`queries`的维度、`batch_size`大小。
-- 读取输入`negatives`的数量并`reshape()`成`[num_neg * batch_size, dim]`的形状，对`positives`进行相同操作。
-- 通过`tf.square()`函数计算欧式距离，`tf.reduce_sum()`函数沿第二根轴求和，分别得到`distance_positives`和`distance_negatives`
-- 通过`tf.maximum()`实现核心公式，计算出 loss
+- 读取输入`queries` 的维度、`batch_size` 大小。
+- 读取输入 `negatives` 的数量并 `reshape()` 成 `[num_neg * batch_size, dim]` 的形状，对 `positives` 进行相同操作。
+- 通过 `tf.square()` 函数计算欧式距离，`tf.reduce_sum()` 函数沿第二根轴求和，分别得到 `distance_positives` 和 `distance_negatives`
+- 通过 `tf.maximum()` 实现核心公式，计算出 loss
 
 # 四、对比分析
 
-- 使用场景与功能：Pytorch实现求解三元组API的基本功能，TensorFlow以训练中的实际参数为代入，两种代码风格不同。功能上基本一致，这里paddle三元组API的设计将对齐Pytorch中的三元组API。
+- 使用场景与功能：Pytorch 实现求解三元组 API 的基本功能，TensorFlow 以训练中的实际参数为代入，两种代码风格不同。功能上基本一致，这里 paddle 三元组 API 的设计将对齐 Pytorch 中的三元组 API。
 
 # 五、方案设计
 
 ## 命名与参数设计
 
-API 设计为`paddle.nn.TripletMarginLoss(margin=1.0, p=2.0, eps=1e-06, swap=False, size_average=None, reduce=None, reduction='mean') -> Tensor`及`padde.nn.functional.triplet_margin_loss(anchor, positive, negative, margin=1.0, p=2, eps=1e-06, swap=False, size_average=None, reduce=None, reduction='mean') -> Tensor`
-命名与参数顺序为：形参名`anchor`->`tensor`和`positive`->`tensor`,`negative`->`tensor` ,其余与 paddle 其他 API 保持一致性，不影响实际功能使用。
+共添加以下三个 API：
+
+- `paddle.nn.TripletMarginLoss(margin=1.0, p=2.0, epsilon=1e-06, swap=False, reduction='mean', name=None) -> Tensor`
+- `padde.nn.functional.triplet_margin_loss(anchor, positive, negative, margin=1.0, p=2, epsilon=1e-06, swap=False, reduction='mean', name=None) -> Tensor`
+- `padde.nn.functional.pairwise_distance(x, y, p=2.0, epsilon=1e-06, keepdim=False, name=None) -> Tensor` （后续详述为何要添加此 API）
 
 ## 底层 OP 设计
 
@@ -157,41 +163,69 @@ API 设计为`paddle.nn.TripletMarginLoss(margin=1.0, p=2.0, eps=1e-06, swap=Fal
 
 ## API 实现方案
 
-主要按下列步骤进行组合实现,实现位置`Paddle\python\paddle\nn\functional\distance.py`与`Paddle\python\paddle\nn\layer\loss.py`等loss方法放在一起：
+### nn.functional.pairwise_distance
 
-1. 使用`check_variable_and_dtype`检查输入的维度是否对齐。
-2. `in_dynamic_mode`检查各个输入参数是否符合规范。
-3. 使用`pairwise_distance()`分别计算得到正锚点与样本和负锚点与样本的距离。
-4. `swap`参数判断：正锚点和负锚点间距离，并与负锚点与样本间距离进行比较，取更小的距离作为负锚点与样本间的距离。
-5. 通过`paddle.clip()`实现公式所示求出得loss。
-6. 根据`reduction`的输入参数，选择loss的输出方式。
+该 API 实现于 `Paddle\python\paddle\nn\functional\distance.py`（目前尚无该文件，故需要新建）
 
+由于 `nn.functional.triplet_margin_loss` 的实现过程中需要 `pairwise_distance`，但 paddle 目前没有 `pairwise_distance` 这样的 functional API，只有 `nn.PairwiseDistance` 这一 Layer API，不方便复用，因此先将 `nn.PairwiseDistance` API 的计算逻辑提取到 `nn.functional.pairwise_distance` 并暴露（已经调研过 torch 也有 `torch.nn.functional.pairwise_distance` 这样的 functional API）
+
+实现逻辑同现有的 `nn.PairwiseDistance`，只不过按照 functional 的风格来写。
+
+### nn.functional.triplet_margin_loss
+
+该 API 实现于 `Paddle\python\paddle\nn\functional\loss.py`，与 `binary_cross_entropy`、`binary_cross_entropy_with_logits` 等函数放在一起。
+
+1. 检查参数
+
+   1. 检查 reduction 有效性（同其余 functional loss 中的实现）
+   2. 检查输入的 dtype（含 `anchor`、`positive`、`negative`）（同其余 functional loss 中的实现）
+   3. 检查 `anchor`、`positive`、`negative` 三者维度是否对齐
+
+2. 计算
+
+   1. 使用 `nn.functional.pairwise_distance` 分别计算得到正锚点与样本和负锚点与样本的距离。
+   2. `swap` 参数判断：正锚点和负锚点间距离，并与负锚点与样本间距离进行比较，取更小的距离作为负锚点与样本间的距离。
+   3. 通过 `paddle.clip` 实现公式所示求出得 loss。
+
+3. 根据 `reduction`，输出 loss（同其余 functional loss 中的实现）
+
+### nn.TripletMarginLoss
+
+该 API 实现于 `Paddle\python\paddle\nn\layer\loss.py`，与 `BCEWithLogitsLoss`、`CrossEntropyLoss` 等类放在一起。
+
+实现逻辑为调用 functional API `nn.functional.triplet_margin_loss`，与其他 loss Layer 保持一致。
 
 # 六、测试和验收的考量
 
 测试考虑的 case 如下：
 
-- `padde.nn.functional.triplet_margin_loss`,``paddle.nn.TripletMarginLoss`和torch结果是否一致；
-- 参数`margin`为 float 和 1-D Tensor 时输出的正确性；
-- 参数`p`为的正确性
-- `eps`参数的正确性；
-- `swap`参数的正确性；
-- 输入含`NaN`结果的正确性；
-- `reduction`对应不同参数的正确性；
-- 输入维度不同，报错的正确性；
-
+- `padde.nn.functional.triplet_margin_loss`, `paddle.nn.TripletMarginLoss` 和 torch 结果是否一致；
+- 参数 `margin` 为 float 和 1-D Tensor 时输出的正确性；
+- 参数 `p` 各个取值的正确性；
+- 参数 `epsilon` 的正确性；
+- 参数 `swap` 为 `True` 或者 `False` 的正确性；
+- 输入含 `NaN` 结果的正确性；
+- `reduction` 对应不同参数的正确性；
+- 错误检查：`p` 值不在 `[???]` 时能正确抛出错误
 
 # 七、可行性分析及规划排期
 
-方案主要依赖现有 paddle api 组合而成，且依赖的`paddle.nn.layer.pairwise_distance`、`paddle.clip`、`paddle.min`已于前期合入，由于`paddle.nn.layer.pairwise_distance`代码将求距离的实现方法写在`nn.layer`中，且与常规`nn.layer`中代码风格不同，故依据其余代码风格将`paddle.nn.layer.pairwise_distance`重构到`paddle.nn.functional.pairwise_distance`中，并通过`paddle.nn.layer.loss`进行调用，工期上可以满足在当前版本周期内开发完成。
+方案主要依赖现有 paddle api 组合而成，且依赖的 `paddle.clip`、`paddle.min` 已于前期合入，依赖的 `paddle.nn.functional.pairwise_distance` 从 `paddle.nn.PairwiseDistance` 提取得到。
+
+具体规划为
+
+- 阶段一：提取 `nn.PairwiseDistance` 主要逻辑到 `nn.functional.pairwise_distance`，在 `nn.PairwiseDistance` 中调用它，保证其逻辑不变
+- 阶段二：完成 `nn.functioanl.triplet_margin_loss`，并在 `nn.TripletMarginLoss` 中调用
+- 阶段三：完成 `nn.functioanl.triplet_margin_loss` 单元测试
+- 阶段四：为三个新的 API 书写中文文档
 
 # 八、影响面
 
-为独立新增 API，对其他模块没有影响
+除去本次要新增的两个 API，额外增加了一个 `nn.functional.pairwise_distance`，但对原有的 `nn.PairwiseDistance` 没有影响
 
 # 名词解释
 
-无 
+无
 
 # 附件及参考资料
 
