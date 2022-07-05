@@ -4,8 +4,8 @@
 | ------------ | ---------------------------------------- |
 | 提交作者     | Ainavo                                   |
 | 提交时间     | 2022-07-04                               |
-| 版本号       | V1.0                                     |
-| 依赖飞桨版本 | v2.2.3                                   |
+| 版本号       | V0.1.0                                     |
+| 依赖飞桨版本 | develop                                   |
 | 文件名       | 20220704_design_for_pairwise_distance.md |
 
 # 一、概述
@@ -30,7 +30,7 @@
 
 ## Pytorch
 
-Pytorch 中有 functional API `torch.nn.functional.pairwise_distance(x1, x2, p=2.0, eps=1e-06, keepdim=False) → Tensor`，以及对应的 Module `torch.nn.PairwiseDistance(p=2.0, eps=1e-06, keepdim=False)`
+Pytorch 中有 functional API `torch.nn.functional.pairwise_distance(x1, x2, p=2.0, eps=1e-06, keepdim=False) → Tensor`，以及对应的 class API `torch.nn.PairwiseDistance(p=2.0, eps=1e-06, keepdim=False)`
 
 在 Pytorch 中，介绍为：
 
@@ -120,11 +120,11 @@ void impl_func_norm(
 - innermost_dim：输入维度 -1
 - 调用 norm 算子，norm 算子的逻辑：
 ## TensorFlow
-TensorFlow 中有Model`nsl.keras.layers.PairwiseDistance(distance_config=None, **kwargs)`以及距离函数`nsl.lib.pairwise_distance_wrapper(sources, targets, weights=1.0, distance_config=None)`
+TensorFlow 中有class API `nsl.keras.layers.PairwiseDistance(distance_config=None, **kwargs)`以及距离函数 functional API `nsl.lib.pairwise_distance_wrapper(sources, targets, weights=1.0, distance_config=None)`
 
 ### 实现方法
 
-在实现方法上 tensorflow 以 python API 组合实现，[代码位置](https://github.com/tensorflow/neural-structured-learning/blob/c21dad4feff187cdec041a564193ea7b619b8906/neural_structured_learning/lib/distances.py#L222)。
+在实现方法上 Tensorflow 以 python API 组合实现，[代码位置](https://github.com/tensorflow/neural-structured-learning/blob/c21dad4feff187cdec041a564193ea7b619b8906/neural_structured_learning/lib/distances.py#L222)。
 
 其中核心代码为：
 
@@ -266,7 +266,7 @@ def pairwise_distance_wrapper(sources,
 
 ### nn.functional.pairwise_distance
 
-该 API 实现于 `Paddle\python\paddle\nn\functional\distance.py`（目前尚无该文件，故需要新建）
+该 API 实现于 `Paddle/python/paddle/nn/functional/distance.py`（目前尚无该文件，故需要新建）
 
 paddle 目前没有 `pairwise_distance` 这样的 functional API，只有 `nn.PairwiseDistance` 这一 Layer API，不方便复用，因此先将 `nn.PairwiseDistance` API 的计算逻辑提取到 `nn.functional.pairwise_distance` 并暴露（已经调研过 torch 也有 `torch.nn.functional.pairwise_distance` 这样的 functional API）
 
