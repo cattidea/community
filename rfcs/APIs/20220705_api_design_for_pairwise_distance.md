@@ -4,45 +4,74 @@
 | ------------ | ---------------------------------------- |
 | 提交作者     | Ainavo                                   |
 | 提交时间     | 2022-07-04                               |
-| 版本号       | V0.1.0                                     |
-| 依赖飞桨版本 | develop                                   |
+| 版本号       | V0.1.0                                   |
+| 依赖飞桨版本 | develop                                  |
 | 文件名       | 20220704_design_for_pairwise_distance.md |
 
 # 一、概述
 
 ## 1、相关背景
 
-为了提升飞桨 API 丰富度，支持神经网络搭建相关 API，Paddle 需要扩充 API `paddle.nn.functional.pairwise_distance` 。
+为了提升飞桨 API 丰富度，支持神经网络搭建相关 API，Paddle 需要扩充 API `paddle.nn.functional.pairwise_distance`。
 
 ## 2、功能目标
 
-增加 API `paddle.nn.functional.pairwise_distance` ，用于计算两组向量两两之间的距离。
+增加 API `paddle.nn.functional.pairwise_distance`，用于计算两组向量两两之间的距离。
 
 ## 3、意义
 
-增加 paddle 中的距离计算。
+增加 Paddle 中的距离计算。
 
 # 二、飞桨现状
 
-目前 paddle 包含 `paddle.linalg.norm` 和 `paddle.dist`，并有。
+- 目前 Paddle 缺少 functional API `paddle.nn.functional.pairwise_distance`，但是存在 class API `paddle.nn.PairwiseDistance(p=2., epsilon=1e-6, keepdim=False, name=None)`，参考 Paddle 其他的 `Layer` 和 `functional` 下的文件是一一对应的关系，因此在需要在 `functional` 文件下添加该 API。
+- 该 API 的实现及测试，主要参考目前 Paddle 中含有的 `paddle.linalg.norm` 和 `paddle.dist` API，下面是对这两个 API 的补充说明。
+
+## [paddle.linalg.norm(x, p='fro', axis=None, keepdim=False, name=None)](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/linalg/norm_cn.html#norm)
+
+计算给定 Tensor 的矩阵范数（Frobenius 范数）和向量范数（向量 1 范数、 2 范数、或者通常的 p 范数）
+
+- `x`(`Tensor`) ：维度为多维，数据类型为 `float32` 或 `float64`，
+- `p` (`float|string`，可选) ： 范数(ord)的种类。目前支持的值为 `fro`、`inf`、`-inf`、`0`、`1`、`2`，和任何正实数 p 对应的 p 范数。默认值为 `fro`。
+- `axis` (`int|list|tuple`，可选) ：使用范数计算的轴。如果 axis 为`None` ，则忽略 `input` 的维度，将其当做向量来计算。如果 axis 为 `int` 或者只有一个元素的 `list|tuple` ，norm API 会计算输入 `Tensor` 的向量范数。如果 axis 为包含两个元素的 list ，API 会计算输入 `Tensor` 的矩阵范数。 当 `axis < 0` 时，实际的计算维度为 `rank(input) + axis`。默认值为 `None`。
+- `keepdim` (`bool`，可选) ：是否在输出的 Tensor 中保留和输入一样的维度，默认值为 False。当 keepdim 为 False 时，输出的 Tensor 会比输入 `input` 的维度少一些。
+- `name` (`str|None`) ：该参数供开发人员打印调试信息时使用。默认值为`None`。
+
+## [paddle.dist(x, y, p=2)](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/dist_cn.html#dist)
+
+该 API 用于计算 (x-y) 的 p 范数（p-norm），需要注意这不是严格意义上的范数，仅作为距离的度量。输入 x 和 y 的形状（shape）必须是可广播的（broadcastable）。
+
+- `x`(`Tensor`)：1-D 到 6-D Tensor，数据类型为 `float32` 或 `float64`。
+- `y`(`Tensor`)：1-D 到 6-D Tensor，数据类型为 `float32` 或 `float64`。
+- `p`(`float，optional`)：用于设置需要计算的范数，数据类型为 `float32` 或 `float64`。默认值为 2。
+
+两者的异同点：
+相同点：
+
+- 两个 API 皆是计算 p 范数。
+- 输入都可以是高阶张量。
+- 对于输入的 `x` 和 `y` 都支持广播（broadcastable）。
+  不同点：
+- paddle.linalg.norm 的`p`可以取值 `fro`（Frobenius 范数），paddle.dist 的 `p` 默认为 2。
+- paddle.linalg.norm 相比于 paddle.dist 增加了可选参数 `axis`：使用范数计算的轴以及 `keepdim` 输出 `Tensor` 时是否保持维度与输入一致，增加了 API 在不同情况下使用的灵活性。
 
 # 三、业内方案调研
 
-## Pytorch
+## PyTorch
 
-Pytorch 中有 functional API `torch.nn.functional.pairwise_distance(x1, x2, p=2.0, eps=1e-06, keepdim=False) → Tensor`，以及对应的 class API `torch.nn.PairwiseDistance(p=2.0, eps=1e-06, keepdim=False)`
+PyTorch 中有 functional API `torch.nn.functional.pairwise_distance(x1, x2, p=2.0, eps=1e-06, keepdim=False) -> Tensor`，以及对应的 class API `torch.nn.PairwiseDistance(p=2.0, eps=1e-06, keepdim=False)`。
 
-在 Pytorch 中，介绍为：
+在 PyTorch 中，介绍为：
 
 > Computes the pairwise distance between vectors :math: $v_1$, :math: $v_2$ using the p-norm:
 
->$$ 
-\Vert x \Vert _p = \left( \sum_{i=1}^n  \vert x_i \vert ^ p \right) ^ {1/p}. 
->$$
+> $$
+> \Vert x \Vert _p = \left( \sum_{i=1}^n  \vert x_i \vert ^ p \right) ^ {1/p}.
+> $$
 
 ### 实现方法
 
-在实现方法上，Pytorch 是通过 C++ API 组合实现的，[代码位置](https://github.com/pytorch/pytorch/blob/9e137ee583c4fdb2dd3aa0c425dc9c289454cbf2/aten/src/ATen/native/Distance.cpp)。
+在实现方法上，PyTorch 是通过 C++ API 组合实现的，[代码位置](https://github.com/pytorch/pytorch/blob/9e137ee583c4fdb2dd3aa0c425dc9c289454cbf2/aten/src/ATen/native/Distance.cpp)。
 C++ 代码实现如下：
 
 ```c++
@@ -119,16 +148,19 @@ void impl_func_norm(
 - 输出维度默认为输入中维度大的向量
 - innermost_dim：输入维度 -1
 - 调用 norm 算子，norm 算子的逻辑：
+
 ## TensorFlow
-TensorFlow 中有class API `nsl.keras.layers.PairwiseDistance(distance_config=None, **kwargs)`以及距离函数 functional API `nsl.lib.pairwise_distance_wrapper(sources, targets, weights=1.0, distance_config=None)`
+
+TensorFlow 中有 class API `nsl.keras.layers.PairwiseDistance(distance_config=None, **kwargs)`以及距离函数 functional API `nsl.lib.pairwise_distance_wrapper(sources, targets, weights=1.0, distance_config=None)`
 
 ### 实现方法
 
-在实现方法上 Tensorflow 以 python API 组合实现，[代码位置](https://github.com/tensorflow/neural-structured-learning/blob/c21dad4feff187cdec041a564193ea7b619b8906/neural_structured_learning/lib/distances.py#L222)。
+在实现方法上 TensorFlow 以 Python API 组合实现，[代码位置](https://github.com/tensorflow/neural-structured-learning/blob/c21dad4feff187cdec041a564193ea7b619b8906/neural_structured_learning/lib/distances.py#L222)。
 
 其中核心代码为：
 
 Python 代码实现如下：
+
 ```python
 def pairwise_distance_wrapper(sources,
                               targets,
@@ -233,22 +265,29 @@ def pairwise_distance_wrapper(sources,
       distances *= sources.shape.dims[sum_over_axis].value
   return distances
 ```
+
 参数表：
-- `sources` : Tensor ( float32 或 float64 )  
-- `targets` : Tensor (与 `sources` 类型保持一致)  
-- `weights` : (optional) 维度为 1 或 与得到的距离维度一致，必须保证可以广播到 `targets`
-- `distance_config` : 计算距离的配置（或超参数） `nsl.configs.DistanceConfig` 实例包含以下配置：(a) `distance_type` :要应用的距离函数的类型。(b) `reduction` :距离减少的类型。(c) `sum_over_axis` :（可选）距离是沿指定轴的差值之和。注：该参数如果不是 `None` 并且 `weights` 的秩不为零，则 `weights` 沿着 `sum_over_axis` 的大小必须为 1 。 (d) `transform_fn` :（可选）如果设置，则 `sources` 和 `targets` 都将在计算距离之前进行转换。如果设置为`SOFTMAX` ，它将在 `sum_over_axis` 指定的轴上执行，如果未指定轴，则为 -1 。如果是 `None` ，将使用默认距离配置。
-  
+
+- `sources` : Tensor ( float32 或 float64 )
+- `targets` : Tensor (与 `sources` 类型保持一致)
+- `weights` : (可选) 维度为 1 或 与得到的距离维度一致，必须保证可以广播到 `targets`
+- `distance_config` : 计算距离的配置（或超参数） `nsl.configs.DistanceConfig` 实例包含以下配置：
+  - (a) `distance_type` :要应用的距离函数的类型。
+  - (b) `reduction` :距离减少的类型。
+  - (c) `sum_over_axis` :（可选）距离是沿指定轴的差值之和。注：该参数如果不是 `None` 并且 `weights` 的秩不为零，则 `weights` 沿着 `sum_over_axis` 的大小必须为 1。
+  - (d) `transform_fn` :（可选）如果设置，则 `sources` 和 `targets` 都将在计算距离之前进行转换。如果设置为`SOFTMAX`，它将在 `sum_over_axis` 指定的轴上执行，如果未指定轴，则为 -1。如果是 `None` ，将使用默认距离配置。
+
 整体逻辑为：
-- 加载距离配置 `distance_config` ， 如果是 `None` ， 则使用默认配置。
-- 加载距离配置中参数 `distance_config.transform_fn` ,如果不是 `None` ，则分别对 `sources` 和 `targets` 应用 `_apply_transform` 。
-- 加载距离配置中参数 `distance_config.distance_type` ,如果不是 `None` ，则分别对 `sources` 和 `targets` 应用 `tf.nn.l2_normalize` 。
+
+- 加载距离配置 `distance_config`，如果是 `None`，则使用默认配置。
+- 加载距离配置中参数 `distance_config.transform_fn`，如果不是 `None`，则分别对 `sources` 和 `targets` 应用 `_apply_transform`。
+- 加载距离配置中参数 `distance_config.distance_type`，如果不是 `None`，则分别对 `sources` 和 `targets` 应用 `tf.nn.l2_normalize`。
 - 判断求解的距离类型，对应使用 `distance_fn` 函数（这里不展开说明）。
 - 将求解得到的距离进行加权操作。
 
 # 四、对比分析
 
-- 使用场景与功能：Pytorch 实现计算两组向量两两之间的距离 API 的基本功能，TensorFlow 以训练中的实际参数为代入，两种代码风格不同。功能上基本一致，这里 paddle 计算两组向量两两之间的距离 API 的设计将对齐 Pytorch 中相应的 API。
+- 使用场景与功能：PyTorch 实现计算两组向量两两之间的距离 API 的基本功能，TensorFlow 以训练中的实际参数为代入，两种代码风格不同。功能上基本一致，这里 Paddle 计算两组向量两两之间的距离 API 的设计将对齐 PyTorch 中相应的 API。
 
 # 五、方案设计
 
@@ -256,7 +295,7 @@ def pairwise_distance_wrapper(sources,
 
 共添加以下 API ：
 
-- `padde.nn.functional.pairwise_distance(x, y, p=2.0, epsilon=1e-06, keepdim=False, name=None) -> Tensor` （后续详述为何要添加此 API）
+- `padde.nn.functional.pairwise_distance(x, y, p=2.0, epsilon=1e-06, keepdim=False, name=None) -> Tensor`（后续详述为何要添加此 API）。
 
 ## 底层 OP 设计
 
@@ -266,14 +305,11 @@ def pairwise_distance_wrapper(sources,
 
 ### nn.functional.pairwise_distance
 
-该 API 实现于 `Paddle/python/paddle/nn/functional/distance.py`（目前尚无该文件，故需要新建）
+该 API 实现于 `Paddle/python/paddle/nn/functional/distance.py`（目前尚无该文件，故需要新建）。
 
-paddle 目前没有 `pairwise_distance` 这样的 functional API，只有 `nn.PairwiseDistance` 这一 Layer API，不方便复用，因此先将 `nn.PairwiseDistance` API 的计算逻辑提取到 `nn.functional.pairwise_distance` 并暴露（已经调研过 torch 也有 `torch.nn.functional.pairwise_distance` 这样的 functional API）
+Paddle 目前没有 `pairwise_distance` 这样的 functional API，只有 `nn.PairwiseDistance` 这一 Layer API，不方便复用，因此先将 `nn.PairwiseDistance` API 的计算逻辑提取到 `nn.functional.pairwise_distance` 并暴露（已经调研过 torch 也有 `torch.nn.functional.pairwise_distance` 这样的 functional API）。
 
 实现逻辑同现有的 `nn.PairwiseDistance`，只不过按照 functional 的风格来写。
-
-
-
 
 # 六、测试和验收的考量
 
@@ -290,7 +326,7 @@ paddle 目前没有 `pairwise_distance` 这样的 functional API，只有 `nn.Pa
 
 # 七、可行性分析及规划排期
 
-方案主要依赖现有 paddle api 组合而成，且依赖的 `paddle.clip`、`paddle.min` 已于前期合入，依赖的 `paddle.nn.functional.pairwise_distance` 从 `paddle.nn.PairwiseDistance` 提取得到。
+方案主要依赖现有 Paddle api 组合而成，且依赖的 `paddle.clip`、`paddle.min` 已于前期合入，依赖的 `paddle.nn.functional.pairwise_distance` 从 `paddle.nn.PairwiseDistance` 提取得到。
 
 具体规划为
 
