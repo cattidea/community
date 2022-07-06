@@ -16,7 +16,17 @@
 
 ## 2、功能目标
 
-增加 API `paddle.nn.functional.pairwise_distance`，用于计算两组向量两两之间的距离。
+增加 API `paddle.nn.functional.pairwise_distance`，用于计算两组向量两两之间的距离。计算方式如下：
+**p-norm(x - y + epsilon, p, last_dim, keepdim)**
+p-norm 计算函数如下：
+
+> $$
+> \Vert x \Vert _p = \left( \sum_{i=1}^n  \vert x_i \vert ^ p \right) ^ {1/p} p \geq 1, x \in R ^ n
+> $$
+
+- 对不同 shape 的输入，当 x 和 y 分别取 (N, D) 和 (D, )、(N, D) 和 (N, D)、(D, ) 和 (N, D) 以及 (D, ) 和 (D, ) 这四种情况，都能正确的广播并计算相应的范数；
+- 对于不同的 p 值，可以求解不同类型的 p 范数；
+- 参数 `keepdim` 可以控制输出的维度是否与输入保持一致。
 
 ## 3、意义
 
@@ -24,7 +34,7 @@
 
 # 二、飞桨现状
 
-- 目前 Paddle 缺少 functional API `paddle.nn.functional.pairwise_distance`，但是存在 class API `paddle.nn.PairwiseDistance(p=2., epsilon=1e-6, keepdim=False, name=None)`，参考 Paddle 其他的 `Layer` 和 `functional` 下的文件是一一对应的关系，因此在需要在 `functional` 目录下添加该 API。
+- 目前 Paddle 缺少 functional API `paddle.nn.functional.pairwise_distance`，但是存在 class API `paddle.nn.PairwiseDistance(p=2., epsilon=1e-6, keepdim=False, name=None)`，参考 Paddle 其他的 `layer` 和 `functional` 下的文件是一一对应的关系，因此在需要在 `functional` 目录下添加该 API。
 - 该 API 的实现及测试，主要参考目前 Paddle 中含有的 `paddle.linalg.norm` 和 `paddle.dist` API，下面是对这两个 API 的补充说明。
 
 ## [paddle.linalg.norm(x, p='fro', axis=None, keepdim=False, name=None)](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/linalg/norm_cn.html#norm)
@@ -45,7 +55,8 @@
 - `y`(`Tensor`)：1-D 到 6-D Tensor，数据类型为 `float32` 或 `float64`。
 - `p`(`float，optional`)：用于设置需要计算的范数，数据类型为 `float32` 或 `float64`。默认值为 2。
 
-两者的异同点：
+## 两者的异同点
+
 相同点：
 
 - 两个 API 皆是计算 p 范数。
@@ -300,14 +311,14 @@ def pairwise_distance_wrapper(sources,
 
 - 都能实现计算两组张量之间的距离 API 的基本功能，都可以计算 1 范数、2 范数；
 - 对于输入维度不同的两组张量，都可以进行广播机制（broadcastable）；
-- API 都可以对指定维度（轴）进行计算；
+- API 都可以对指定维度（轴）进行计算。
 
 ## 不同点
 
 - PyTorch 可以实现任意阶的 p 范数$p \in (-inf, inf)$，TensorFlow 只可以实现 l1 、l2 范数，但是还包含了其他的距离求解方式，例如`COSINE`（余弦距离）、`JENSEN_SHANNON_DIVERGENCE` （JS 散度）、`KL_DIVERGENCE` （KL 散度）；
 - PyTorch 的 API 有参数 `eps` :避免出现除零错误， TensorFlow 则是隐式的避免了错误
 - PyTorch 的 API 的参数 `keepdim`：是否保持张量维度，对应 TensorFlow 中的 reduce 操作。keepdim 可由 reduction 参数实现。
-- TensorFlow 的 API 有参数 `weights` ：权重， PyTorch 并没有相关参数。
+- TensorFlow 的 API 有参数 `weights` （权重）， PyTorch 并没有相关参数。
 
 # 五、方案设计
 
@@ -334,23 +345,26 @@ paddle.nn.functional.pairwise_distance(
 ## API 实现方案
 
 该 API 实现于 `Paddle/python/paddle/nn/functional/distance.py`（目前尚无该文件，故需要新建）。
-
 Paddle 中已有 `nn.PairwiseDistance` class API 的具体实现逻辑，位于其 `forward` 函数中，因此只需把该 API 的计算逻辑提取出来，用于实现 `paddle.nn.functional.pairwise_distance` API。
 class API 中的具体实现：
 
 - 通过 `in_dygraph_mode` 判断是否为新动态图，如果是，则先通过调用 `_C_ops.elementwise_sub` 逐元素相减，然后调用 `_C_ops.final_state_p_norm` 函数计算两组张量间的距离范数；
 - 通过 `_in_legacy_dygraph` 判断是否为旧动态图，如果是，则先通过调用 `_C_ops.elementwise_sub` 逐元素相减，然后则调用 `_C_ops.p_norm` 计算两组张量间的距离范数。
+- 如果是静态图的话，首先实例化 `LayerHelper("PairwiseDistance", name=self.name)` ，然后调用 `paddle.subtract` 逐元素相减，调用`helper.append_op`加载参数， 调用`helper.create_variable_for_type_inference` 计算两组张量间的距离范数。
 
-经测试，输入 x，y 的 shape 皆为(D, )，调用 `nn.PairwiseDistance` class API 进行计算时会报维度错误，因为调用 `_C_ops.p_norm` 或 `_C_ops.final_state_p_norm` 时，维度参数默认为 1。
+经测试，输入 x，y 的 shape 皆为(D, )，调用 `nn.PairwiseDistance` class API 进行计算时会报维度错误，因为调用 `_C_ops.p_norm` 或 `_C_ops.final_state_p_norm` 时，维度参数为 1。
 
 # 六、测试和验收的考量
 
 测试考虑的 case 如下：
 
-- 参数 `p` 各个取值的正确性；
-- 参数 `epsilon` 的正确性；
-- 参数 `keepdim` 为 `True` 或者 `False` 的正确性；
-- x 和 y 的形状为 (N, D) 或者 (D, ), 当 x 和 y 分别取以下四种情况： (N, D) 和 (D, )、(N, D) 和 (N, D)、(D, )和(N, D) 以及(D, )和(D, )，该 API 是否可以计算得到正确的值；
+- 参数 `p` 各个取值的正确性：
+  - 对于 0、 1、2 等任意正实数 p 范数能够计算对应的范数及正确的结果；
+  - `-inf` 和 `inf` 能够计算对应的范数及正确的结果；
+  - `fro` 能够计算对应的范数及正确的结果；
+- 参数 `epsilon` 的正确性，能够保证程序不出现除零错误；
+- 参数 `keepdim` 为 `True` 或者 `False` 的输出 shape 正确性；
+- x 和 y 的形状为 (N, D) 或者 (D, ), 当 x 和 y 分别取以下四种情况： (N, D) 和 (D, )、(N, D) 和 (N, D)、(D, ) 和 (N, D) 以及 (D, ) 和 (D, )，该 API 是否可以计算得到正确的值和 shape；
 - 在动态图、静态图下的都能得到正确的结果；
 
 # 七、可行性分析及规划排期
@@ -361,11 +375,11 @@ class API 中的具体实现：
 
 - 阶段一：提取 `nn.PairwiseDistance` 主要逻辑到 `nn.functional.pairwise_distance`，在 `nn.PairwiseDistance` 中调用它，保证其逻辑不变。
 - 阶段二：完成 `nn.functional.pairwise_distance` 单元测试
-- 阶段三：该 API 书写中文文档
+- 阶段三：该 API 书写中英文档
 
 # 八、影响面
 
-增加了一个 `nn.functional.pairwise_distance` API，并对原有的 `nn.PairwiseDistance` class API 进行修改，使其直接调用 `nn.functional.pairwise_distance` API，与 Layer 文件下的其他 class API 书写方式一致。
+增加了一个 `nn.functional.pairwise_distance` API，并对原有的 `nn.PairwiseDistance` class API 进行修改，使其直接调用 `nn.functional.pairwise_distance` API，与 Layer 文件夹下的其他 class API 书写方式一致。
 
 # 名词解释
 
@@ -373,4 +387,18 @@ class API 中的具体实现：
 
 # 附件及参考资料
 
-无
+## PyTorch
+
+_[torch.nn.functional.pairwise_distance](https://pytorch.org/docs/stable/generated/torch.nn.functional.pairwise_distance.html?highlight=pairwise#torch.nn.functional.pairwise_distance)_
+
+_[torch.nn.PairwiseDistance](https://pytorch.org/docs/stable/generated/torch.nn.PairwiseDistance.html#torch.nn.PairwiseDistance)_
+
+## TensorFlow
+
+_[nsl.lib.pairwise_distance_wrapper](https://www.tensorflow.org/neural_structured_learning/api_docs/python/nsl/lib/pairwise_distance_wrapper)_
+
+## Paddle
+
+_[paddle.linalg.norm](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/linalg/norm_cn.html#norm)_
+
+_[paddle.dist](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/dist_cn.html#dist)_
