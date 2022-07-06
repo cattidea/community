@@ -359,13 +359,13 @@ class API 中的具体实现：
 
 具体规划为
 
-- 阶段一：提取 `nn.PairwiseDistance` 主要逻辑到 `nn.functional.pairwise_distance`，在 `nn.PairwiseDistance` 中调用它，保证其逻辑不变
+- 阶段一：提取 `nn.PairwiseDistance` 主要逻辑到 `nn.functional.pairwise_distance`，在 `nn.PairwiseDistance` 中调用它，保证其逻辑不变。
 - 阶段二：完成 `nn.functional.pairwise_distance` 单元测试
 - 阶段三：该 API 书写中文文档
 
 # 八、影响面
 
-增加了一个 `nn.functional.pairwise_distance` API，并对原有的 `nn.PairwiseDistance` class API 中`_C_ops.final_state_p_norm` 以及 `_C_ops.p_norm` 中的 `axis` 参数修改为 -1。
+增加了一个 `nn.functional.pairwise_distance` API，并对原有的 `nn.PairwiseDistance` class API 进行修改，使其直接调用 `nn.functional.pairwise_distance` API，与 Layer 文件下的其他 class API 书写方式一致。
 
 # 名词解释
 
