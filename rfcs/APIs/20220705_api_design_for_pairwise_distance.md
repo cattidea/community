@@ -361,7 +361,6 @@ class API 中的具体实现：
 - 参数 `p` 各个取值的正确性：
   - 对于 0、 1、2 等任意正实数 p 范数能够计算对应的范数及正确的结果；
   - `-inf` 和 `inf` 能够计算对应的范数及正确的结果；
-  - `fro` 能够计算对应的范数及正确的结果；
 - 参数 `epsilon` 的正确性，能够保证程序不出现除零错误；
 - 参数 `keepdim` 为 `True` 或者 `False` 的输出 shape 正确性；
 - x 和 y 的形状为 (N, D) 或者 (D, ), 当 x 和 y 分别取以下四种情况： (N, D) 和 (D, )、(N, D) 和 (N, D)、(D, ) 和 (N, D) 以及 (D, ) 和 (D, )，该 API 是否可以计算得到正确的值和 shape；
@@ -389,16 +388,16 @@ class API 中的具体实现：
 
 ## PyTorch
 
-_[torch.nn.functional.pairwise_distance](https://pytorch.org/docs/stable/generated/torch.nn.functional.pairwise_distance.html?highlight=pairwise#torch.nn.functional.pairwise_distance)_
+[torch.nn.functional.pairwise_distance](https://pytorch.org/docs/stable/generated/torch.nn.functional.pairwise_distance.html?highlight=pairwise#torch.nn.functional.pairwise_distance)
 
-_[torch.nn.PairwiseDistance](https://pytorch.org/docs/stable/generated/torch.nn.PairwiseDistance.html#torch.nn.PairwiseDistance)_
+[torch.nn.PairwiseDistance](https://pytorch.org/docs/stable/generated/torch.nn.PairwiseDistance.html#torch.nn.PairwiseDistance)
 
 ## TensorFlow
 
-_[nsl.lib.pairwise_distance_wrapper](https://www.tensorflow.org/neural_structured_learning/api_docs/python/nsl/lib/pairwise_distance_wrapper)_
+[nsl.lib.pairwise_distance_wrapper](https://www.tensorflow.org/neural_structured_learning/api_docs/python/nsl/lib/pairwise_distance_wrapper)
 
 ## Paddle
 
-_[paddle.linalg.norm](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/linalg/norm_cn.html#norm)_
+[paddle.linalg.norm](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/linalg/norm_cn.html#norm)
 
-_[paddle.dist](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/dist_cn.html#dist)_
+[paddle.dist](https://www.paddlepaddle.org.cn/documentation/docs/zh/api/paddle/dist_cn.html#dist)
